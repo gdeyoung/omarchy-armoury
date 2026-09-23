@@ -1,0 +1,44 @@
+{
+  "schemaVersion": 1,
+  "id": "gdeyoung.armoury",
+  "name": "Armoury",
+  "version": "0.1.0",
+  "author": "gdeyoung",
+  "license": "MIT",
+  "description": "ASUS laptop control: CPU temp chip on the bar, panel with battery care mode (Standard/Balanced/Maximum lifespan via asus-armoury firmware attributes), thermal and fan readout, platform profile, pending-reboot flag, and a read-only view of every firmware attribute",
+  "kinds": [
+    "bar-widget"
+  ],
+  "entryPoints": {
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Armoury",
+    "description": "ASUS temps, fan, battery care mode, firmware attributes",
+    "category": "System",
+    "allowMultiple": false,
+    "defaultSection": "right",
+    "defaults": {
+      "chipMode": "temp",
+      "refreshSeconds": 30
+    },
+    "schema": [
+      {
+        "key": "chipMode",
+        "type": "enum",
+        "label": "Bar chip shows (middle click cycles)",
+        "options": ["temp", "profile", "fan", "off"],
+        "defaultValue": "temp"
+      },
+      {
+        "key": "refreshSeconds",
+        "type": "integer",
+        "label": "Refresh interval (seconds)",
+        "min": 5,
+        "max": 300,
+        "step": 5,
+        "defaultValue": 30
+      }
+    ]
+  }
+}

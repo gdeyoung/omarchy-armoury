@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# omarchy-armoury-helper — polkit-gated writer for gdeyoung.armoury.
+# Installed root-owned at /usr/local/bin. Invoked as:
+#   pkexec omarchy-armoury-helper charge-mode 0|1|2
+#   pkexec omarchy-armoury-helper charge-limit 20..100
+# Strictly whitelisted verbs; everything else exits 1.
+set -euo pipefail
+
+verb="${1:-}"
+value="${2:-}"
+
+ATTR=/sys/class/firmware-attributes/asus-armoury/attributes/charge_mode/current_value
+TH=$(ls /sys/class/power_supply/BAT*/charge_control_end_threshold 2>/dev/null | head -1)
+
+case "$verb" in
+  charge-mode)
+    case "$value" in
+      0|1|2) ;;
+      *) echo "invalid charge-mode value: $value" >&2; exit 1 ;;
+    esac
+    printf '%s' "$value" > "$ATTR"
+    ;;
+  charge-limit)
+    n=$(printf '%s' "$value" | tr -cd '0-9')
+    if [ -z "$n" ] || [ "$n" -lt 20 ] || [ "$n" -gt 100 ]; then
+      echo "invalid charge-limit value: $value" >&2
+      exit 1
+    fi
+    [ -n "$TH" ] || { echo "no charge_control_end_threshold found" >&2; exit 1; }
+    printf '%s' "$n" > "$TH"
+    ;;
+  *)
+    echo "unknown verb: $verb" >&2
+    exit 1
+    ;;
+esac
+
+# Read back for the caller.
+if [ "$verb" = "charge-mode" ]; then
+  cat "$ATTR" 2>/dev/null || true
+else
+  cat "$TH" 2>/dev/null || true
+fi
