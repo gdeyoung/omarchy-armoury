@@ -182,6 +182,7 @@ Panel {
         }
         Text {
           visible: root.chargeMode.quirk
+          width: parent.width
           textFormat: Text.PlainText
           text: "Firmware reports raw value " + (root.chargeMode.rawValue || "?") + " — unknown mode; pick a mode to set one explicitly."
           color: root.foreground
