@@ -14,7 +14,10 @@ laptop whose firmware exposes attributes under
 
 ## Panel
 
-- **Thermal** — CPU (k10temp Tctl), GPU (amdgpu), NVMe temps + fan RPM, platform profile + EPP
+G-Helper-inspired layout:
+
+- **Temp gauges** — big CPU (Tctl) and GPU readouts with proportional level bars (green → amber ≥ 75° → red ≥ 90°); fan RPM and NVMe below
+- **GPU mode** — Hybrid / Integrated / Ultimate selector on machines that expose `dgpu_disable` / `gpu_mux_mode` (G-Helper semantics: Integrated = dGPU off for battery, Ultimate = dGPU drives the panel). Applies at next reboot. Hidden on iGPU-only machines
 - **Battery care** — ASUS charge-care mode (Standard / Balanced / Maximum lifespan) via the firmware `charge_mode` attribute, plus the live charge threshold. Writes go through a polkit-gated helper (`pkexec`) — the shell pops a native password prompt, remembered for the session
 - **Firmware attributes** — every attribute the module exposes, read-only (future attributes appear automatically)
 - **Identity** — model, board, BIOS version; a banner when a firmware change is waiting on reboot
@@ -49,9 +52,9 @@ Optional write support (battery care mode):
 sudo bash helper/install-helper.sh   # installs /usr/local/bin/omarchy-armoury-helper + polkit action
 ```
 
-The helper is a strictly whitelisted writer: `charge-mode 0|1|2` and
-`charge-limit 20..100` are the only things it can do. The widget works
-read-only without it.
+The helper is a strictly whitelisted writer: `charge-mode 0|1|2`,
+`charge-limit 20..100`, `gpu-disable 0|1`, and `gpu-mux 0|1` are the only
+things it can do. The widget works read-only without it.
 
 ## Uninstall
 

@@ -12,6 +12,51 @@ var CHARGE_MODES = [
   { value: 2, key: "lifespan", label: "Maximum lifespan", hint: "lowest charge, best battery health" }
 ];
 
+// GPU modes (G-Helper semantics on the asus-armoury attributes):
+//   dgpu_disable: 0 = dGPU enabled, 1 = dGPU disabled (Integrated/"Eco")
+//   gpu_mux_mode: 0 = hybrid display path, 1 = dGPU drives the panel (Ultimate)
+// Both apply at next reboot. Which attrs exist varies per model.
+var GPU_MODES = [
+  { key: "hybrid", label: "Hybrid", needsDgpu: false, needsMux: false,
+    writes: [ { verb: "gpu-disable", value: 0 } ],
+    hint: "iGPU + dGPU on demand" },
+  { key: "integrated", label: "Integrated", needsDgpu: true, needsMux: false,
+    writes: [ { verb: "gpu-disable", value: 1 } ],
+    hint: "dGPU off, best battery" },
+  { key: "ultimate", label: "Ultimate", needsDgpu: false, needsMux: true,
+    writes: [ { verb: "gpu-mux", value: 1 } ],
+    hint: "dGPU drives the display" }
+];
+
+function gpuCapability(state) {
+  var dg = state && state.attrs ? state.attrs["dgpu_disable"] : null;
+  var mux = state && state.attrs ? state.attrs["gpu_mux_mode"] : null;
+  return { dgpu: !!dg, mux: !!mux, switchable: !!dg || !!mux };
+}
+
+function gpuOptions(state) {
+  var cap = gpuCapability(state);
+  if (!cap.switchable) return [];
+  var out = [];
+  for (var i = 0; i < GPU_MODES.length; i++) {
+    var m = GPU_MODES[i];
+    if (m.needsDgpu && !cap.dgpu) continue;
+    if (m.needsMux && !cap.mux) continue;
+    out.push(m);
+  }
+  return out;
+}
+
+function gpuMode(state) {
+  var cap = gpuCapability(state);
+  if (!cap.switchable) return null;
+  var mux = state.attrs["gpu_mux_mode"];
+  var dg = state.attrs["dgpu_disable"];
+  if (cap.mux && mux && mux.current === "1") return "ultimate";
+  if (cap.dgpu && dg && dg.current === "1") return "integrated";
+  return "hybrid";
+}
+
 // Temp color thresholds (CPU Tctl, Strix Point spec max 100C).
 function tempLevel(c) {
   if (c === null || c === undefined || isNaN(c)) return "ok";
@@ -128,13 +173,24 @@ function identityLines(state) {
 function validWrite(verb, value) {
   if (verb === "charge-mode") return [0, 1, 2].indexOf(Number(value)) >= 0;
   if (verb === "charge-limit") { var n = Number(value); return n >= 20 && n <= 100; }
+  if (verb === "gpu-disable") return Number(value) === 0 || Number(value) === 1;
+  if (verb === "gpu-mux") return Number(value) === 0 || Number(value) === 1;
   return false;
+}
+
+// All writes a GPU mode selection implies (may be more than one attribute).
+function gpuWrites(modeKey) {
+  for (var i = 0; i < GPU_MODES.length; i++)
+    if (GPU_MODES[i].key === modeKey)
+      return GPU_MODES[i].writes;
+  return [];
 }
 
 // node (tests) export — QML ignores this block.
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
-    CHARGE_MODES, tempLevel, fanString, parseProbe,
-    chargeMode, chargeModeLabel, pendingReboot, identityLines, validWrite
+    CHARGE_MODES, GPU_MODES, tempLevel, fanString, parseProbe,
+    chargeMode, chargeModeLabel, pendingReboot, identityLines, validWrite,
+    gpuCapability, gpuOptions, gpuMode, gpuWrites
   };
 }

@@ -9,8 +9,25 @@ set -euo pipefail
 verb="${1:-}"
 value="${2:-}"
 
-ATTR=/sys/class/firmware-attributes/asus-armoury/attributes/charge_mode/current_value
+ATTR=/sys/class/firmware-attributes/asus-armoury/attributes
 TH=$(ls /sys/class/power_supply/BAT*/charge_control_end_threshold 2>/dev/null | head -1)
+
+attr_path() { # $1 = attribute name; empty when absent
+  [ -d "$ATTR/$1" ] && printf '%s' "$ATTR/$1/current_value"
+}
+
+fw_write() { # $1 = attribute name, $2 = value
+  local p
+  p=$(attr_path "$1")
+  [ -n "$p" ] || { echo "attribute not present: $1" >&2; exit 1; }
+  printf '%s' "$2" > "$p"
+}
+
+fw_read() { # $1 = attribute name
+  local p
+  p=$(attr_path "$1")
+  [ -n "$p" ] && cat "$p"
+}
 
 case "$verb" in
   charge-mode)
@@ -18,7 +35,8 @@ case "$verb" in
       0|1|2) ;;
       *) echo "invalid charge-mode value: $value" >&2; exit 1 ;;
     esac
-    printf '%s' "$value" > "$ATTR"
+    fw_write charge_mode "$value"
+    fw_read charge_mode
     ;;
   charge-limit)
     n=$(printf '%s' "$value" | tr -cd '0-9')
@@ -28,16 +46,26 @@ case "$verb" in
     fi
     [ -n "$TH" ] || { echo "no charge_control_end_threshold found" >&2; exit 1; }
     printf '%s' "$n" > "$TH"
+    cat "$TH"
+    ;;
+  gpu-disable)
+    case "$value" in
+      0|1) ;;
+      *) echo "invalid gpu-disable value: $value" >&2; exit 1 ;;
+    esac
+    fw_write dgpu_disable "$value"
+    fw_read dgpu_disable
+    ;;
+  gpu-mux)
+    case "$value" in
+      0|1) ;;
+      *) echo "invalid gpu-mux value: $value" >&2; exit 1 ;;
+    esac
+    fw_write gpu_mux_mode "$value"
+    fw_read gpu_mux_mode
     ;;
   *)
     echo "unknown verb: $verb" >&2
     exit 1
     ;;
 esac
-
-# Read back for the caller.
-if [ "$verb" = "charge-mode" ]; then
-  cat "$ATTR" 2>/dev/null || true
-else
-  cat "$TH" 2>/dev/null || true
-fi

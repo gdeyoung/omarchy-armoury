@@ -55,26 +55,52 @@ BarWidget {
   }
 
   // --- writes (polkit-gated) ---------------------------------------------
-  // verb validated by Model.validWrite; value is a strict integer/string.
-  function applyWrite(verb, value) {
-    if (!Model.validWrite(verb, value)) {
+  // A mode selection can imply several attribute writes; they run as one
+  // queue through a single pkexec Process. verb validated by Model.validWrite.
+  property var writeQueue: []
+  property string writeLabel: ""
+
+  function applyWrites(label, writes) {
+    var q = [];
+    for (var i = 0; i < writes.length; i++)
+      if (Model.validWrite(writes[i].verb, writes[i].value))
+        q.push(writes[i]);
+    if (q.length === 0) {
       writeResult = "invalid value";
       return;
     }
-    if (writeProc.running)
-      return;
+    if (writeProc.running || writeQueue.length > 0)
+      return; // a write is already in flight; the panel re-triggers after
+    writeQueue = q;
+    writeLabel = label;
     writeBusy = true;
     writeResult = "";
-    writeProc.command = ["pkexec", "omarchy-armoury-helper", verb, String(value)];
+    runNextWrite();
+  }
+
+  function runNextWrite() {
+    if (writeQueue.length === 0) {
+      writeBusy = false;
+      refresh();
+      return;
+    }
+    var item = writeQueue[0];
+    writeQueue = writeQueue.slice(1);
+    writeProc.command = ["pkexec", "omarchy-armoury-helper", item.verb, String(item.value)];
     writeProc.running = true;
   }
 
   Process {
     id: writeProc
     onExited: function (exitCode) {
-      root.writeBusy = false;
-      root.writeResult = exitCode === 0 ? "applied" : "failed (exit " + exitCode + ")";
-      root.refresh();
+      if (exitCode !== 0) {
+        root.writeBusy = false;
+        root.writeQueue = [];
+        root.writeResult = "failed (exit " + exitCode + ")";
+        root.refresh();
+        return;
+      }
+      root.runNextWrite();
     }
   }
 
