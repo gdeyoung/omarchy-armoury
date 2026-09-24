@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "id": "gdeyoung.armoury",
   "name": "Armoury",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "author": "gdeyoung",
   "license": "MIT",
   "description": "ASUS laptop control centre: tabbed panel (Overview / Fan / Battery / Advanced) with CPU+GPU temp gauges, fan-curve editor on supported machines (capability-gated), battery health & wear, charge care mode, GPU mode switching on dGPU machines, charge-limit slider, fan, platform profile, pending-reboot flag, and a read-only firmware-attribute browser",
