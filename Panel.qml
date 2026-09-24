@@ -97,7 +97,10 @@ Panel {
 
     Column {
       id: column
-      width: panel.contentWidth
+      // The KeyboardPanel contentHolder is already inset by card padding —
+      // size to the ACTUAL available interior (stock panels use
+      // scrollArea.availableWidth; contentWidth is the card's OUTER width).
+      width: parent ? parent.width : panel.contentWidth
       spacing: Style.spacing.md
 
       // ===== Hero: identity =====
