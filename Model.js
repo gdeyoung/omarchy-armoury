@@ -157,6 +157,15 @@ function chargeMode(state) {
   };
 }
 
+function fanPolicyLabel(profile) {
+  // ASUS throttle_thermal_policy (what the firmware actually changes when the
+  // platform profile moves): quiet=Silent(2) balanced=Balanced(0)
+  // performance=Overboost(1). Same knob PPD drives — display only, never set.
+  var map = { quiet: "Silent", balanced: "Balanced", performance: "Overboost",
+              "power-saver": "Silent", "low-power": "Silent" };
+  return map[String(profile || "").toLowerCase()] || null;
+}
+
 function chargeModeLabel(value) {
   for (var i = 0; i < CHARGE_MODES.length; i++)
     if (CHARGE_MODES[i].value === value) return CHARGE_MODES[i].label;
@@ -272,6 +281,6 @@ if (typeof module !== "undefined" && module.exports) {
     CHARGE_MODES, GPU_MODES, tempLevel, fanString, parseProbe,
     chargeMode, chargeModeLabel, pendingReboot, identityLines, validWrite,
     gpuCapability, gpuOptions, gpuMode, gpuWrites, batteryStats,
-    fanControl, validateCurve, fanCurveWrites
+    fanControl, validateCurve, fanCurveWrites, fanPolicyLabel
   };
 }

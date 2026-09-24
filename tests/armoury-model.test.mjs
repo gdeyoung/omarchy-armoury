@@ -113,3 +113,16 @@ test('identity and fan strings', () => {
   assert.equal(Model.fanString(3600), '3600 rpm');
   assert.equal(Model.fanString(0), 'idle');
 });
+
+// v0.4.4: fan-policy labeling — ASUS throttle_thermal_policy names for the
+// profile PPD drives (display-only; verified on M5606WA: PPD perf -> policy 1)
+test('fanPolicyLabel maps profiles to ASUS fan-policy names', () => {
+  assert.equal(Model.fanPolicyLabel('balanced'), 'Balanced');
+  assert.equal(Model.fanPolicyLabel('performance'), 'Overboost');
+  assert.equal(Model.fanPolicyLabel('quiet'), 'Silent');
+  assert.equal(Model.fanPolicyLabel('power-saver'), 'Silent');
+  assert.equal(Model.fanPolicyLabel('Performance'), 'Overboost');
+  assert.equal(Model.fanPolicyLabel(''), null);
+  assert.equal(Model.fanPolicyLabel(null), null);
+  assert.equal(Model.fanPolicyLabel('made-up-mode'), null);
+});

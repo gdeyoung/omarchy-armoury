@@ -43,7 +43,7 @@ Column {
     width: parent.width
     elide: Text.ElideRight
     textFormat: Text.PlainText
-    text: "Platform profile " + (root.state.profile || "—")
+    text: "Fan policy " + (Model.fanPolicyLabel(root.state.profile) || root.state.profile || "—")
       + (root.state.epp !== "" ? " · EPP " + root.state.epp : "")
     color: root.foreground
     opacity: 0.6
