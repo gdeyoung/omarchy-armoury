@@ -42,6 +42,15 @@ GPU MUX — need ROG hardware this plugin's target machines don't have. The
 kernel module exposes the same firmware knobs directly. If you already run
 asusd, don't install both writers; use that instead.
 
+### When firmware locks charge care
+
+Some firmwares advertise a `charge_mode` enumeration but refuse writes to it —
+observed as `EACCES` even for root. On such machines the care-mode selector
+passes the firmware's refusal through instead of pretending to succeed; set a
+**charge limit** instead (Advanced tab), which uses the standard
+`charge_control_end_threshold` interface and works independently of
+`charge_mode`.
+
 Power profiles themselves are left to PPD (and whatever widget drives it) —
 this plugin displays the active profile but doesn't set it.
 
