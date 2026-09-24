@@ -87,6 +87,20 @@ Panel {
     function selectTab(i: int): void {
       root.currentTab = Math.max(0, Math.min(3, i));
     }
+
+    // Card rect in SCREEN logical coords + scale, for deterministic capture.
+    function geometry(): string {
+      var w = root.QsWindow ? root.QsWindow.window : null;
+      var cw = column && column.parent ? column.parent.parent : null; // card
+      if (!w || !cw) return "{}";
+      var o = cw.mapToItem(null, 0, 0);    // scene coords, logical
+      var sx = w.devicePixelRatio || 1;
+      return JSON.stringify({
+        x: Math.round(o.x), y: Math.round(o.y),
+        width: Math.round(cw.width), height: Math.round(cw.height),
+        scale: sx
+      });
+    }
   }
 
   KeyboardPanel {

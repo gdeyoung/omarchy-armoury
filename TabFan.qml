@@ -11,15 +11,24 @@ Column {
   width: parent ? parent.width : 0
   spacing: Style.spacing.md
 
-  readonly property var fc: Model.fanControl(root.state)
+  readonly property var fc: root && root.state ? Model.fanControl(root.state) : { supported: false, points: [] }
   // Editing state: copy of the curve; changed flag drives the apply row.
   property var editPoints: []
   property bool dirty: false
+  property bool seeded: false
 
   Component.onCompleted: resetEdit()
 
+  // The Loader assigns root after load; seed the editor once real points
+  // arrive (never re-seed: polls re-evaluate fc every few seconds and would
+  // clobber in-progress edits).
+  onFcChanged: if (!seeded && fc && fc.points && fc.points.length > 0) {
+    seeded = true;
+    resetEdit();
+  }
+
   function resetEdit() {
-    var pts = fc.points.length > 0 ? fc.points : defaultCurve();
+    var pts = fc && fc.points && fc.points.length > 0 ? fc.points : defaultCurve();
     editPoints = pts.map(function (p) { return { temp: p.temp, pwm: p.pwm }; });
     dirty = false;
   }

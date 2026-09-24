@@ -1,5 +1,7 @@
 # Omarchy Armoury
 
+![Armoury](preview.png)
+
 ASUS laptop control in the [Omarchy](https://omarchy.org/) bar — built on the
 kernel's `asus_armoury` module (Linux 6.14+), not `asusctl`. Zero daemons,
 zero dependencies: everything reads straight from sysfs.
@@ -14,13 +16,19 @@ laptop whose firmware exposes attributes under
 
 ## Panel
 
-G-Helper-inspired layout:
+G-Helper-inspired layout, four tabs (Overview / Fan / Battery / Advanced):
 
-- **Temp gauges** — big CPU (Tctl) and GPU readouts with proportional level bars (green → amber ≥ 75° → red ≥ 90°); fan RPM and NVMe below
+- **Overview** — big CPU (Tctl) and GPU readouts with proportional level bars (green → amber ≥ 75° → red ≥ 90°); fan RPM, NVMe temp, platform profile below
+- **Fan** — 8-point fan-curve editor (temperature → duty %) on machines that expose the asus-wmi fan-curve interface (`pwm1_auto_point` hwmon, kernel 5.17+): nudge any hump, validate, then *Activate custom* or *Restore BIOS curve*. Capability-gated — machines without it say so plainly instead of faking it
 - **GPU mode** — Hybrid / Integrated / Ultimate selector on machines that expose `dgpu_disable` / `gpu_mux_mode` (G-Helper semantics: Integrated = dGPU off for battery, Ultimate = dGPU drives the panel). Applies at next reboot. Hidden on iGPU-only machines
-- **Battery care** — ASUS charge-care mode (Standard / Balanced / Maximum lifespan) via the firmware `charge_mode` attribute, plus the live charge threshold. Writes go through a polkit-gated helper (`pkexec`) — the shell pops a native password prompt, remembered for the session
-- **Firmware attributes** — every attribute the module exposes, read-only (future attributes appear automatically)
+- **Battery** — health & wear (full ÷ design capacity), ASUS charge-care mode (Standard / Balanced / Maximum lifespan) via the firmware `charge_mode` attribute, live status/draw/cycles, charge threshold
+- **Advanced** — charge-limit slider, and every attribute the module exposes, read-only (future attributes appear automatically)
 - **Identity** — model, board, BIOS version; a banner when a firmware change is waiting on reboot
+
+Writes (care mode, charge limit, GPU mode, fan curve) go through a
+polkit-gated helper (`pkexec`) — the shell pops a native password prompt,
+remembered for the session. The widget is fully functional read-only without
+it.
 
 Bar chip modes (middle click cycles, or set in the plugin settings UI):
 temperature / profile / fan rpm / icon only. Right click forces a refresh.
@@ -53,8 +61,9 @@ sudo bash helper/install-helper.sh   # installs /usr/local/bin/omarchy-armoury-h
 ```
 
 The helper is a strictly whitelisted writer: `charge-mode 0|1|2`,
-`charge-limit 20..100`, `gpu-disable 0|1`, and `gpu-mux 0|1` are the only
-things it can do. The widget works read-only without it.
+`charge-limit 20..100`, `gpu-disable 0|1`, `gpu-mux 0|1`, `fan-mode 0|1`, and
+`fan-point temp|pwm <1-8> <value>` are the only things it can do. The widget
+works read-only without it.
 
 ## Uninstall
 
