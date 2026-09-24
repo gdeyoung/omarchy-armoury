@@ -67,9 +67,36 @@ bdes=$(cat "$BAT/charge_full_design" 2>/dev/null || cat "$BAT/energy_full_design
 bvol=$(cat "$BAT/voltage_now" 2>/dev/null)
 bcur=$(cat "$BAT/current_now" 2>/dev/null)
 
-# --- fan (asus ec) ----------------------------------------------------------
+# --- fan (asus EC) ----------------------------------------------------------
 fan_h=$(hwmon_by_name asus)
 fan=$( [ -n "$fan_h" ] && cat "$fan_h/fan1_input" 2>/dev/null )
+
+# --- fan control (asus-wmi fan-curve interface, kernel 5.17+) ---------------
+# Supported machines expose pwm1_auto_point[1-8]_temp/_pwm (°C / 0-255) and
+# pwm1_enable (0 = BIOS default curve, 1 = custom curve active) in the "asus"
+# hwmon. File presence IS the capability gate.
+fan_ctrl=""
+if [ -n "$fan_h" ]; then
+  fm_raw=$(cat "$fan_h/pwm1_enable" 2>/dev/null)
+  if [ -e "$fan_h/pwm1_auto_point1_temp" ]; then
+    pts=""
+    for i in 1 2 3 4 5 6 7 8; do
+      pt=$(cat "$fan_h/pwm1_auto_point${i}_temp" 2>/dev/null)
+      pw=$(cat "$fan_h/pwm1_auto_point${i}_pwm" 2>/dev/null)
+      [ -n "$pt" ] && [ -n "$pw" ] && pts="${pts}{\"temp\":${pt},\"pwm\":${pw}},"
+    done
+    pts="${pts%,}"
+    case "$fm_raw" in
+      0) fmode="bios" ;;
+      1) fmode="custom" ;;
+      *) fmode="unknown" ;;
+    esac
+    fan_ctrl="\"supported\":true,\"mode\":\"${fmode}\",\"raw\":\"${fm_raw:-}\",\"points\":[${pts}]"
+  else
+    fan_ctrl="\"supported\":false,\"mode\":null,\"raw\":\"${fm_raw:-}\",\"points\":null"
+  fi
+fi
+[ -n "$fan_ctrl" ] || fan_ctrl="\"supported\":false,\"mode\":null,\"raw\":null,\"points\":null"
 
 # --- temps: k10temp (CPU), amdgpu edge, nvme composite ----------------------
 k10_h=$(hwmon_by_name k10temp); amd_h=$(hwmon_by_name amdgpu); nvme_h=$(hwmon_by_name nvme)
@@ -89,7 +116,7 @@ bios=$(cat /sys/class/dmi/id/bios_version 2>/dev/null)
 board=$(cat /sys/class/dmi/id/board_name 2>/dev/null)
 fam=$(cat /sys/class/dmi/id/product_family 2>/dev/null)
 
-printf '{"attrs":[%s],"battery":{"status":"%s","capacity":"%s","cycles":"%s","now":"%s","full":"%s","design":"%s","vol":"%s","cur":"%s","threshold":"%s"},"fan":"%s","temps":{"cpu":%s,"gpu":%s,"nvme":%s},"profile":"%s","profiles":"%s","epp":"%s","bios":"%s","board":"%s","family":"%s"}\n' \
-  "$attrs" "$(esc "${bstat:-}")" "$(esc "${bcap:-}")" "$(esc "${bcyc:-}")" "$(esc "${bnow:-}")" "$(esc "${bfull:-}")" "$(esc "${bdes:-}")" "$(esc "${bvol:-}")" "$(esc "${bcur:-}")" "$(esc "${th:-}")" "$(esc "${fan:-}")" \
+printf '{"attrs":[%s],"battery":{"status":"%s","capacity":"%s","cycles":"%s","now":"%s","full":"%s","design":"%s","vol":"%s","cur":"%s","threshold":"%s"},"fan":"%s","fanControl":{%s},"temps":{"cpu":%s,"gpu":%s,"nvme":%s},"profile":"%s","profiles":"%s","epp":"%s","bios":"%s","board":"%s","family":"%s"}\n' \
+  "$attrs" "$(esc "${bstat:-}")" "$(esc "${bcap:-}")" "$(esc "${bcyc:-}")" "$(esc "${bnow:-}")" "$(esc "${bfull:-}")" "$(esc "${bdes:-}")" "$(esc "${bvol:-}")" "$(esc "${bcur:-}")" "$(esc "${th:-}")" "$(esc "${fan:-}")" "$fan_ctrl" \
   "$cpu_t" "$gpu_t" "$nvme_t" "$(esc "${prof:-}")" "$(esc "${prof_c:-}")" "$(esc "${epp:-}")" \
   "$(esc "${bios:-}")" "$(esc "${board:-}")" "$(esc "${fam:-}")"

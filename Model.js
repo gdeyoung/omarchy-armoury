@@ -104,6 +104,7 @@ function parseProbe(text) {
   out.battery.design = numOr(b.design, null);
   out.battery.vol = numOr(b.vol, null);
   out.battery.cur = numOr(b.cur, null);
+  out.fanControl = d.fanControl || null;
 
   out.fanRpm = numOr(d.fan, 0);
   var t = d.temps || {};
@@ -176,11 +177,18 @@ function identityLines(state) {
 }
 
 // Sanity check a helper write before spawning pkexec: verb + strict value.
-function validWrite(verb, value) {
+function validWrite(verb, value, index, kind) {
   if (verb === "charge-mode") return [0, 1, 2].indexOf(Number(value)) >= 0;
   if (verb === "charge-limit") { var n = Number(value); return n >= 20 && n <= 100; }
   if (verb === "gpu-disable") return Number(value) === 0 || Number(value) === 1;
   if (verb === "gpu-mux") return Number(value) === 0 || Number(value) === 1;
+  if (verb === "fan-mode") return Number(value) === 0 || Number(value) === 1;
+  if (verb === "fan-point") {
+    var i = Number(index), v = Number(value);
+    if (kind !== "temp" && kind !== "pwm") return false;
+    if (!(i >= 1 && i <= 8)) return false;
+    return kind === "temp" ? (v >= 30 && v <= 100) : (v >= 0 && v <= 255);
+  }
   return false;
 }
 
@@ -190,6 +198,55 @@ function gpuWrites(modeKey) {
     if (GPU_MODES[i].key === modeKey)
       return GPU_MODES[i].writes;
   return [];
+}
+
+// Fan curve control (asus-wmi fan-curve hwmon, kernel 5.17+).
+// pwm1_enable: 0 = BIOS default curve, 1 = custom curve.
+// Points: 8 humps of {temp °C, pwm 0-255}; many boards report < 8.
+function fanControl(p) {
+  var fc = (p && p.fanControl) || {};
+  function n(v) { var x = Number(v); return isNaN(x) ? null : x; }
+  var supported = fc.supported === true;
+  var mode = supported ? String(fc.mode || "unknown") : null;
+  return {
+    supported: supported,
+    mode: mode,
+    raw: fc.raw === undefined || fc.raw === null ? null : String(fc.raw),
+    points: Array.isArray(fc.points) ? fc.points.map(function (pt) {
+      return { temp: n(pt.temp), pwm: n(pt.pwm) };
+    }) : []
+  };
+}
+
+// Validate + normalize an 8-point curve: temps strictly increasing within
+// 30-100 °C, pwm non-decreasing within 0-255. Returns {ok, error, points}
+// with pwm rounded to integers. Mirrors asusd's monotone check.
+function validateCurve(points) {
+  if (!Array.isArray(points) || points.length === 0)
+    return { ok: false, error: "no points", points: null };
+  var out = [];
+  for (var i = 0; i < points.length; i++) {
+    var t = Number(points[i] && points[i].temp), w = Number(points[i] && points[i].pwm);
+    if (isNaN(t) || isNaN(w)) return { ok: false, error: "point " + i + ": not a number", points: null };
+    if (t < 30 || t > 100) return { ok: false, error: "point " + i + ": temp " + t + " outside 30-100", points: null };
+    if (w < 0 || w > 255) return { ok: false, error: "point " + i + ": pwm " + w + " outside 0-255", points: null };
+    if (i > 0 && t <= out[i - 1].temp) return { ok: false, error: "point " + i + ": temp not increasing", points: null };
+    if (i > 0 && w < out[i - 1].pwm) return { ok: false, error: "point " + i + ": pwm decreasing", points: null };
+    out.push({ temp: Math.round(t), pwm: Math.round(w) });
+  }
+  return { ok: true, error: "", points: out };
+}
+
+// Curve writes: all N point temp/pwm files, then pwm1_enable 1 (activate).
+// Restore = writes + pwm1_enable 0.
+function fanCurveWrites(points, activate) {
+  var writes = [];
+  for (var i = 0; i < points.length; i++) {
+    writes.push({ verb: "fan-point-temp", index: i + 1, value: Math.round(points[i].temp) });
+    writes.push({ verb: "fan-point-pwm", index: i + 1, value: Math.round(points[i].pwm) });
+  }
+  writes.push({ verb: "fan-mode", value: activate ? 1 : 0 });
+  return writes;
 }
 
 // node (tests) export — QML ignores this block.
@@ -214,6 +271,7 @@ if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     CHARGE_MODES, GPU_MODES, tempLevel, fanString, parseProbe,
     chargeMode, chargeModeLabel, pendingReboot, identityLines, validWrite,
-    gpuCapability, gpuOptions, gpuMode, gpuWrites, batteryStats
+    gpuCapability, gpuOptions, gpuMode, gpuWrites, batteryStats,
+    fanControl, validateCurve, fanCurveWrites
   };
 }

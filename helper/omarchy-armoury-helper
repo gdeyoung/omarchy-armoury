@@ -3,6 +3,10 @@
 # Installed root-owned at /usr/local/bin. Invoked as:
 #   pkexec omarchy-armoury-helper charge-mode 0|1|2
 #   pkexec omarchy-armoury-helper charge-limit 20..100
+#   pkexec omarchy-armoury-helper gpu-disable 0|1
+#   pkexec omarchy-armoury-helper gpu-mux 0|1
+#   pkexec omarchy-armoury-helper fan-mode 0|1
+#   pkexec omarchy-armoury-helper fan-point temp|pwm <1-8> <30..100|0..255>
 # Strictly whitelisted verbs; everything else exits 1.
 set -euo pipefail
 
@@ -11,6 +15,7 @@ value="${2:-}"
 
 ATTR=/sys/class/firmware-attributes/asus-armoury/attributes
 TH=$(ls /sys/class/power_supply/BAT*/charge_control_end_threshold 2>/dev/null | head -1)
+FANH=$(for d in /sys/class/hwmon/hwmon*; do [ "$(cat "$d/name" 2>/dev/null)" = "asus" ] && printf '%s' "$d" && break; done)
 
 attr_path() { # $1 = attribute name; empty when absent
   [ -d "$ATTR/$1" ] && printf '%s' "$ATTR/$1/current_value"
@@ -63,6 +68,29 @@ case "$verb" in
     esac
     fw_write gpu_mux_mode "$value"
     fw_read gpu_mux_mode
+    ;;
+  fan-mode) # 0 = BIOS default curve, 1 = custom curve
+    case "$value" in
+      0|1) ;;
+      *) echo "invalid fan-mode value: $value" >&2; exit 1 ;;
+    esac
+    [ -n "$FANH" ] && [ -e "$FANH/pwm1_enable" ] || { echo "no asus fan hwmon" >&2; exit 1; }
+    printf '%s' "$value" > "$FANH/pwm1_enable"
+    cat "$FANH/pwm1_enable"
+    ;;
+  fan-point) # fan-point temp|pwm <1-8> <value>
+    kind="${2:-}"; idx="${3:-}"; val="${4:-}"
+    case "$kind" in temp|pwm) ;; *) echo "invalid fan-point kind: $kind" >&2; exit 1 ;; esac
+    case "$idx" in [1-8]) ;; *) echo "invalid fan-point index: $idx" >&2; exit 1 ;; esac
+    case "$val" in ''|*[!0-9]*) echo "invalid fan-point value: $val" >&2; exit 1 ;; esac
+    if [ "$kind" = temp ]; then
+      [ "$val" -ge 30 ] && [ "$val" -le 100 ] || { echo "temp out of range 30-100: $val" >&2; exit 1; }
+    else
+      [ "$val" -le 255 ] || { echo "pwm out of range 0-255: $val" >&2; exit 1; }
+    fi
+    [ -n "$FANH" ] && [ -e "$FANH/pwm1_auto_point${idx}_${kind}" ] || { echo "fan curve not supported" >&2; exit 1; }
+    printf '%s' "$val" > "$FANH/pwm1_auto_point${idx}_${kind}"
+    cat "$FANH/pwm1_auto_point${idx}_${kind}"
     ;;
   *)
     echo "unknown verb: $verb" >&2

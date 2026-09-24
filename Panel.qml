@@ -30,7 +30,6 @@ Panel {
   readonly property color foreground: bar ? bar.barForeground : Color.foreground
   readonly property color accent: Color.accent
   readonly property string fontFamily: bar ? bar.fontFamily : Style.font.family
-  readonly property string iconFont: Style.font.iconFont
   readonly property bool writeBusy: hostWidget ? hostWidget.writeBusy : false
   readonly property string writeResult: hostWidget && hostWidget.writeResult !== undefined ? hostWidget.writeResult : ""
 
@@ -84,6 +83,10 @@ Panel {
     function status(): string {
       return root.statusJson();
     }
+
+    function selectTab(i: int): void {
+      root.currentTab = Math.max(0, Math.min(3, i));
+    }
   }
 
   KeyboardPanel {
@@ -119,16 +122,16 @@ Panel {
         background: Color.background
         accent: root.accent
         fontFamily: root.fontFamily
-        options: ["Overview", "Battery", "Advanced"]
-        value: ["Overview", "Battery", "Advanced"][root.currentTab]
+        options: ["Overview", "Fan", "Battery", "Advanced"]
+        value: ["Overview", "Fan", "Battery", "Advanced"][root.currentTab]
         onChanged: function (label) {
-          root.currentTab = ["Overview", "Battery", "Advanced"].indexOf(label);
+          root.currentTab = ["Overview", "Fan", "Battery", "Advanced"].indexOf(label);
         }
       }
 
       Loader {
         width: parent.width
-        source: ["TabOverview.qml", "TabBattery.qml", "TabAdvanced.qml"][root.currentTab]
+        source: ["TabOverview.qml", "TabFan.qml", "TabBattery.qml", "TabAdvanced.qml"][root.currentTab]
         onLoaded: if (item) item.root = root
       }
     }

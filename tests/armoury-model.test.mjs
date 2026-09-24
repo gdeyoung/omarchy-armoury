@@ -97,6 +97,12 @@ test('validWrite gates helper verbs strictly', () => {
   assert.equal(Model.validWrite('charge-limit', 80), true);
   assert.equal(Model.validWrite('charge-limit', 10), false);
   assert.equal(Model.validWrite('charge-limit', 101), false);
+  assert.equal(Model.validWrite('fan-mode', 0), true);
+  assert.equal(Model.validWrite('fan-mode', 2), false);
+  assert.equal(Model.validWrite('fan-point', 50, 3, 'temp'), true);
+  assert.equal(Model.validWrite('fan-point', 150, 3, 'temp'), false);
+  assert.equal(Model.validWrite('fan-point', 140, 9, 'pwm'), false);
+  assert.equal(Model.validWrite('fan-point', 140, 3, 'rpm'), false);
   assert.equal(Model.validWrite('rm-rf', 1), false);
 });
 

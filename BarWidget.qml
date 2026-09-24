@@ -63,7 +63,7 @@ BarWidget {
   function applyWrites(label, writes) {
     var q = [];
     for (var i = 0; i < writes.length; i++)
-      if (Model.validWrite(writes[i].verb, writes[i].value))
+      if (Model.validWrite(writes[i].verb, writes[i].value, writes[i].index, writes[i].kind))
         q.push(writes[i]);
     if (q.length === 0) {
       writeResult = "invalid value";
@@ -86,7 +86,12 @@ BarWidget {
     }
     var item = writeQueue[0];
     writeQueue = writeQueue.slice(1);
-    writeProc.command = ["pkexec", "omarchy-armoury-helper", item.verb, String(item.value)];
+    var cmd = ["pkexec", "omarchy-armoury-helper", item.verb];
+    if (item.verb === "fan-point")
+      cmd = cmd.concat([item.kind, String(item.index), String(item.value)]);
+    else
+      cmd.push(String(item.value));
+    writeProc.command = cmd;
     writeProc.running = true;
   }
 
