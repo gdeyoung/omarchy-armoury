@@ -55,9 +55,17 @@ fi
 [ -n "$attrs" ] || attrs='null'
 
 # --- battery / charge -------------------------------------------------------
-th=$(cat /sys/class/power_supply/BAT1/charge_control_end_threshold 2>/dev/null)
-bstat=$(cat /sys/class/power_supply/BAT1/status 2>/dev/null)
-bcap=$(cat /sys/class/power_supply/BAT1/capacity 2>/dev/null)
+# Glob BAT*: this board is BAT1, others BAT0. First match wins.
+BAT=$(ls -d /sys/class/power_supply/BAT* 2>/dev/null | head -1)
+th=$(cat "$BAT/charge_control_end_threshold" 2>/dev/null)
+bstat=$(cat "$BAT/status" 2>/dev/null)
+bcap=$(cat "$BAT/capacity" 2>/dev/null)
+bcyc=$(cat "$BAT/cycle_count" 2>/dev/null)
+bnow=$(cat "$BAT/charge_now" 2>/dev/null || cat "$BAT/energy_now" 2>/dev/null)
+bfull=$(cat "$BAT/charge_full" 2>/dev/null || cat "$BAT/energy_full" 2>/dev/null)
+bdes=$(cat "$BAT/charge_full_design" 2>/dev/null || cat "$BAT/energy_full_design" 2>/dev/null)
+bvol=$(cat "$BAT/voltage_now" 2>/dev/null)
+bcur=$(cat "$BAT/current_now" 2>/dev/null)
 
 # --- fan (asus ec) ----------------------------------------------------------
 fan_h=$(hwmon_by_name asus)
@@ -81,7 +89,7 @@ bios=$(cat /sys/class/dmi/id/bios_version 2>/dev/null)
 board=$(cat /sys/class/dmi/id/board_name 2>/dev/null)
 fam=$(cat /sys/class/dmi/id/product_family 2>/dev/null)
 
-printf '{"attrs":[%s],"battery":{"status":"%s","capacity":"%s","threshold":"%s"},"fan":"%s","temps":{"cpu":%s,"gpu":%s,"nvme":%s},"profile":"%s","profiles":"%s","epp":"%s","bios":"%s","board":"%s","family":"%s"}\n' \
-  "$attrs" "$(esc "${bstat:-}")" "$(esc "${bcap:-}")" "$(esc "${th:-}")" "$(esc "${fan:-}")" \
+printf '{"attrs":[%s],"battery":{"status":"%s","capacity":"%s","cycles":"%s","now":"%s","full":"%s","design":"%s","vol":"%s","cur":"%s","threshold":"%s"},"fan":"%s","temps":{"cpu":%s,"gpu":%s,"nvme":%s},"profile":"%s","profiles":"%s","epp":"%s","bios":"%s","board":"%s","family":"%s"}\n' \
+  "$attrs" "$(esc "${bstat:-}")" "$(esc "${bcap:-}")" "$(esc "${bcyc:-}")" "$(esc "${bnow:-}")" "$(esc "${bfull:-}")" "$(esc "${bdes:-}")" "$(esc "${bvol:-}")" "$(esc "${bcur:-}")" "$(esc "${th:-}")" "$(esc "${fan:-}")" \
   "$cpu_t" "$gpu_t" "$nvme_t" "$(esc "${prof:-}")" "$(esc "${prof_c:-}")" "$(esc "${epp:-}")" \
   "$(esc "${bios:-}")" "$(esc "${board:-}")" "$(esc "${fam:-}")"

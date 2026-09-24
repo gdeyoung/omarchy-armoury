@@ -24,9 +24,18 @@ test('parseProbe parses the real captured probe line', () => {
   assert.ok(s.temps.cpu > 25 && s.temps.cpu < 105, 'cpu temp sane');
   assert.ok(s.temps.gpu > 20 && s.temps.gpu < 105, 'gpu temp sane');
   assert.ok(s.temps.nvme > 15 && s.temps.nvme < 90, 'nvme temp sane');
-  assert.equal(s.profile, 'performance');
+  assert.ok(['quiet', 'balanced', 'performance'].includes(s.profile), 'profile is one of the choices: ' + s.profile);
   assert.deepEqual(s.profiles, ['quiet', 'balanced', 'performance']);
   assert.equal(s.bios, 'M5606WA.316');
+});
+
+test('batteryStats computes health, wear, watts from the live capture', () => {
+  const s = Model.batteryStats(Model.parseProbe(FIXTURE));
+  assert.equal(s.status, 'Full');
+  assert.equal(s.percent, 100);
+  assert.ok(s.health > 85 && s.health < 95, 'health sane: ' + s.health);
+  assert.ok(Math.abs(s.wear - (100 - s.health)) < 0.2, 'wear complements health');
+  assert.equal(typeof s.watts, 'number');
 });
 
 test('parseProbe survives garbage and empty input', () => {

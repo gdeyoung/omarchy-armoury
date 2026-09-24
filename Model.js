@@ -98,6 +98,12 @@ function parseProbe(text) {
   out.battery.status = String(b.status || "");
   out.battery.capacity = numOr(b.capacity, -1);
   out.battery.threshold = numOr(b.threshold, -1);
+  out.battery.cycles = numOr(b.cycles, null);
+  out.battery.now = numOr(b.now, null);
+  out.battery.full = numOr(b.full, null);
+  out.battery.design = numOr(b.design, null);
+  out.battery.vol = numOr(b.vol, null);
+  out.battery.cur = numOr(b.cur, null);
 
   out.fanRpm = numOr(d.fan, 0);
   var t = d.temps || {};
@@ -187,10 +193,27 @@ function gpuWrites(modeKey) {
 }
 
 // node (tests) export — QML ignores this block.
+// Battery health / wear / live draw. Health = full/design capacity.
+function batteryStats(p) {
+  var b = (p && p.battery) || {};
+  var uNow = Number(b.now), uFull = Number(b.full), uDes = Number(b.design);
+  var uVol = Number(b.vol), uCur = Number(b.cur);
+  function has(v) { return v !== undefined && v !== null && v !== "" && !isNaN(v); }
+  return {
+    status: b.status || "—",
+    percent: has(b.capacity) ? Number(b.capacity) : null,
+    cycles: has(b.cycles) ? Number(b.cycles) : null,
+    health: has(uFull) && has(uDes) && uDes > 0 ? Math.round((uFull / uDes) * 1000) / 10 : null,
+    wear: has(uFull) && has(uDes) && uDes > 0 ? Math.round(((uDes - uFull) / uDes) * 1000) / 10 : null,
+    watts: has(uVol) && has(uCur) ? Math.round((uVol / 1e6) * (Math.abs(uCur) / 1e6) * 10) / 10 : null,
+    charging: b.status === "Charging"
+  };
+}
+
 if (typeof module !== "undefined" && module.exports) {
   module.exports = {
     CHARGE_MODES, GPU_MODES, tempLevel, fanString, parseProbe,
     chargeMode, chargeModeLabel, pendingReboot, identityLines, validWrite,
-    gpuCapability, gpuOptions, gpuMode, gpuWrites
+    gpuCapability, gpuOptions, gpuMode, gpuWrites, batteryStats
   };
 }

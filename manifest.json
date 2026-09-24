@@ -2,10 +2,10 @@
   "schemaVersion": 1,
   "id": "gdeyoung.armoury",
   "name": "Armoury",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "author": "gdeyoung",
   "license": "MIT",
-  "description": "ASUS laptop control: CPU/GPU temp gauges on the bar panel, battery care mode, GPU mode switching on dGPU machines (Hybrid/Integrated/Ultimate via dgpu_disable + gpu_mux_mode), fan, platform profile, pending-reboot flag, and a read-only view of every firmware attribute",
+  "description": "ASUS laptop control centre: tabbed panel (Overview / Battery / Advanced) with CPU+GPU temp gauges, battery health & wear, charge care mode, GPU mode switching on dGPU machines, charge-limit slider, fan, platform profile, pending-reboot flag, and a read-only firmware-attribute browser",
   "kinds": [
     "bar-widget"
   ],
