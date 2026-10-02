@@ -86,10 +86,20 @@ Column {
       maximum: 100
       step: 5
       integer: true
+      // Two commit paths (issue #5): the shell slider only updates liveValue
+      // while dragging is true, then emits released(liveValue) and snaps
+      // liveValue back to value — so onLiveValueChanged alone can never fire
+      // after a mouse drag. Wheel/keyboard nudges still land here.
       onLiveValueChanged: {
         if (!dragging && liveValue !== root.state.battery.threshold) {
           if (root.hostWidget && root.hostWidget.applyWrites)
             root.hostWidget.applyWrites("charge-limit", [{ verb: "charge-limit", value: Math.round(liveValue) }]);
+        }
+      }
+      onReleased: function (value) {
+        if (value !== root.state.battery.threshold) {
+          if (root.hostWidget && root.hostWidget.applyWrites)
+            root.hostWidget.applyWrites("charge-limit", [{ verb: "charge-limit", value: Math.round(value) }]);
         }
       }
     }

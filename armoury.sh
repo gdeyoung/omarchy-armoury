@@ -65,7 +65,14 @@ bnow=$(cat "$BAT/charge_now" 2>/dev/null || cat "$BAT/energy_now" 2>/dev/null)
 bfull=$(cat "$BAT/charge_full" 2>/dev/null || cat "$BAT/energy_full" 2>/dev/null)
 bdes=$(cat "$BAT/charge_full_design" 2>/dev/null || cat "$BAT/energy_full_design" 2>/dev/null)
 bvol=$(cat "$BAT/voltage_now" 2>/dev/null)
+# Some batteries report power/energy instead of charge/current: they expose
+# power_now (µW) and no current_now. Emit "P:<µW>" so the model can compute
+# watts without a voltage reading (issue #3). Empty stays empty (unknown).
 bcur=$(cat "$BAT/current_now" 2>/dev/null)
+if [ -z "$bcur" ]; then
+  bpw=$(cat "$BAT/power_now" 2>/dev/null)
+  [ -n "$bpw" ] && bcur="P:$bpw"
+fi
 
 # --- fan (asus EC) ----------------------------------------------------------
 fan_h=$(hwmon_by_name asus)

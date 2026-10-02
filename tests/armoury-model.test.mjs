@@ -126,3 +126,47 @@ test('fanPolicyLabel maps profiles to ASUS fan-policy names', () => {
   assert.equal(Model.fanPolicyLabel(null), null);
   assert.equal(Model.fanPolicyLabel('made-up-mode'), null);
 });
+
+// v0.5.0 (issues #3, #4): power_now-only batteries, health/wear clamping,
+// and missing sensors read as unknown (null), never 0.
+test('batteryStats uses power_now when current_now is absent (issue #3)', () => {
+  // UM3406KA report from #3: power_now 18734000 µW, no current_now.
+  const s = Model.parseProbe('{"battery":{"status":"Discharging","vol":"","cur":"P:18734000"}}');
+  assert.equal(s.battery.cur, null);
+  assert.equal(s.battery.pw, 18734000);
+  const bs = Model.batteryStats(s);
+  assert.equal(bs.watts, 18.7);
+});
+
+test('batteryStats prefers current_now x voltage when both exist', () => {
+  const s = Model.parseProbe('{"battery":{"status":"Charging","vol":"12000000","cur":"2500000"}}');
+  assert.equal(s.battery.cur, 2500000);
+  assert.equal(s.battery.pw, null);
+  const bs = Model.batteryStats(s);
+  assert.equal(bs.watts, 30);
+});
+
+test('missing battery sensors are unknown, not zero (issue #3)', () => {
+  const s = Model.parseProbe('{"battery":{"status":"Discharging","vol":"","cur":""}}');
+  assert.equal(s.battery.cur, null);
+  assert.equal(s.battery.pw, null);
+  const bs = Model.batteryStats(s);
+  assert.equal(bs.watts, null);
+  assert.equal(bs.health, null);
+  assert.equal(bs.wear, null);
+});
+
+test('health clamps to 100 and wear to 0 when energy_full exceeds design (issue #4)', () => {
+  // UM3406KA report from #4: energy_full 75883000 > design 75001000.
+  const s = Model.parseProbe('{"battery":{"full":"75883000","design":"75001000"}}');
+  const bs = Model.batteryStats(s);
+  assert.equal(bs.health, 100);
+  assert.equal(bs.wear, 0);
+});
+
+test('health below 100 is unchanged by the clamp', () => {
+  const s = Model.parseProbe('{"battery":{"full":"60000000","design":"75000000"}}');
+  const bs = Model.batteryStats(s);
+  assert.equal(bs.health, 80);
+  assert.equal(bs.wear, 20);
+});

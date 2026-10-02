@@ -102,8 +102,18 @@ function parseProbe(text) {
   out.battery.now = numOr(b.now, null);
   out.battery.full = numOr(b.full, null);
   out.battery.design = numOr(b.design, null);
-  out.battery.vol = numOr(b.vol, null);
-  out.battery.cur = numOr(b.cur, null);
+  out.battery.vol = numOrNull(b.vol);
+  // current_now µA, or the probe's "P:<µW>" power_now fallback (issue #3).
+  // numOrNull throughout: Number("") === 0, so a missing sensor must not
+  // become a live 0 W / 0 V reading.
+  var curRaw = b.cur === null || b.cur === undefined ? "" : String(b.cur);
+  if (curRaw.charAt(0) === "P" && curRaw.charAt(1) === ":") {
+    out.battery.cur = null;
+    out.battery.pw = numOrNull(curRaw.slice(2));
+  } else {
+    out.battery.cur = numOrNull(curRaw);
+    out.battery.pw = null;
+  }
   out.fanControl = d.fanControl || null;
 
   out.fanRpm = numOr(d.fan, 0);
@@ -260,18 +270,35 @@ function fanCurveWrites(points, activate) {
 
 // node (tests) export — QML ignores this block.
 // Battery health / wear / live draw. Health = full/design capacity.
+// Newer packs can report energy_full slightly above design: health clamps to
+// 100 and wear to 0 so the panel never shows 101.2% / −1.2% (issue #4).
+// Draw: V×I when the battery reports current_now; otherwise power_now µW
+// directly (issue #3). Missing sensors are null ("—"), never 0.
 function batteryStats(p) {
   var b = (p && p.battery) || {};
-  var uNow = Number(b.now), uFull = Number(b.full), uDes = Number(b.design);
-  var uVol = Number(b.vol), uCur = Number(b.cur);
-  function has(v) { return v !== undefined && v !== null && v !== "" && !isNaN(v); }
+  // Emptiness must be checked on the RAW value before Number(): both
+  // Number("") and Number(null) are 0, which would turn a missing sensor
+  // into a live 0 W / 0 V reading (issue #3).
+  function has(v) {
+    if (v === undefined || v === null) return false;
+    var s = String(v);
+    return s !== "" && !isNaN(Number(s));
+  }
+  var uFull = has(b.full) ? Number(b.full) : null;
+  var uDes = has(b.design) ? Number(b.design) : null;
+  var uVol = has(b.vol) ? Number(b.vol) : null;
+  var uCur = has(b.cur) ? Number(b.cur) : null;
+  var uPw = has(b.pw) ? Number(b.pw) : null;
+  var watts = null;
+  if (uVol !== null && uCur !== null) watts = Math.round((uVol / 1e6) * (Math.abs(uCur) / 1e6) * 10) / 10;
+  else if (uPw !== null) watts = Math.round((Math.abs(uPw) / 1e6) * 10) / 10;
   return {
     status: b.status || "—",
     percent: has(b.capacity) ? Number(b.capacity) : null,
     cycles: has(b.cycles) ? Number(b.cycles) : null,
-    health: has(uFull) && has(uDes) && uDes > 0 ? Math.round((uFull / uDes) * 1000) / 10 : null,
-    wear: has(uFull) && has(uDes) && uDes > 0 ? Math.round(((uDes - uFull) / uDes) * 1000) / 10 : null,
-    watts: has(uVol) && has(uCur) ? Math.round((uVol / 1e6) * (Math.abs(uCur) / 1e6) * 10) / 10 : null,
+    health: uFull !== null && uDes !== null && uDes > 0 ? Math.min(100, Math.round((uFull / uDes) * 1000) / 10) : null,
+    wear: uFull !== null && uDes !== null && uDes > 0 ? Math.max(0, Math.round(((uDes - uFull) / uDes) * 1000) / 10) : null,
+    watts: watts,
     charging: b.status === "Charging"
   };
 }
