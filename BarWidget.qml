@@ -171,19 +171,32 @@ BarWidget {
     }
   }
 
+  // nf-f2c7 thermometer, extracted from the previous inline usage (literal
+  // PUA char — never retype it through an editor, it silently becomes empty).
+  readonly property string chipGlyph: ""
+
+  // Hidden measurer: BarIconButton renders labelText at Style.bar.iconFont in
+  // the bar's font family; measuring with the same font gives the exact extra
+  // width past the icon slot so the bar never shifts between ticks.
+  Text {
+    id: chipMeasure
+    visible: false
+    text: root.chipText
+    font.family: root.bar && root.bar.fontFamily ? root.bar.fontFamily : Style.font.family
+    font.pixelSize: Style.bar.iconFont
+  }
+
   BarIconButton {
     id: button
     anchors.fill: parent
     bar: root.bar
-    text: {
-      var parts = [];
-      if (root.chipText !== "")
-        parts.push(root.chipText);
-      parts.push(""); // nf-f2c7 thermometer (literal glyph; verified in JetBrainsMono NF cmap)
-      return parts.join(" ");
-    }
-    // Fixed slots so the bar never shifts between ticks: label + icon.
-    slotSize: Style.bar.iconSlot * (root.chipText !== "" ? 2 : 1)
+    // Glyph ONLY in `text` (stock power panel pattern): BarIconButton renders
+    // `text` through OpticalGlyph, which normalizes the painted size of the
+    // WHOLE string to one icon slot — the "62° " chip prefix scaled the
+    // thermometer down ~4x. The chip renders full-size via `labelText`.
+    text: root.chipGlyph
+    labelText: root.chipText
+    slotSize: Style.bar.iconSlot + (root.chipText !== "" ? chipMeasure.implicitWidth + Style.space(4) : 0)
     foreground: root.tempColor
     onPressed: function (b) {
       if (b === Qt.RightButton)
